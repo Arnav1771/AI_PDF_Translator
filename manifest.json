@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "TranslateExt - PDF Translator",
+  "version": "1.0",
+  "description": "Translate selected text in PDFs using Gemini API.",
+  "permissions": [
+    "storage",        
+    "contextMenus",   
+    "notifications",  
+    "scripting",      
+    "activeTab"       
+  ],
+  "host_permissions": [
+    "https://generativelanguage.googleapis.com/"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PDF Translator Test</title>
+</head>
+<body>
+    <div id="pdf-content" style="padding: 20px;">
+        <h2>Test PDF Content</h2>
+        <p>这是一个测试文本。</p>
+        <p>これはテストテキストです。</p>
+        <p>이것은 테스트 텍스트입니다.</p>
+    </div>
+    <div id="test-controls" style="position: fixed; bottom: 10px; right: 10px;">
+        <button onclick="runTest()">Run Translation Test</button>
+        <div id="status"></div>
+    </div>
+    <script>
+        function showStatus(message, isError = false) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.style.color = isError ? 'red' : 'green';
+        }
+
+        function runTest() {
+            const text = document.getSelection().toString() || "这是一个测试文本。";
+            
+            // Check if running in extension context
+            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+                chrome.runtime.sendMessage({action: 'translate', text: text})
+                    .then(response => {
+                        if (response && response.translatedText) {
+                            document.getElementById('pdf-content').innerHTML += `<p>Translated: ${response.translatedText}</p>`;
+                        }
+                        showStatus('Translation completed');
+                    })
+                    .catch(error => {
+                        showStatus('Error: Extension context required. Please load this page through the extension.', true);
+                        console.log('To test properly:');
+                        console.log('1. Load the extension in Chrome (chrome://extensions/)');
+                        console.log('2. Right-click the extension icon');
+                        console.log('3. Click "Options" or use the popup to access test page');
+                    });
+            } else {
+                showStatus('Error: This test page must be loaded through the extension.', true);
+                console.log('To test properly:');
+                console.log('1. Load the extension in Chrome (chrome://extensions/)');
+                console.log('2. Right-click the extension icon');
+                console.log('3. Click "Options" or use the popup to access test page');
+            }
+        }
+    </script>
+</body>
+</html>
