@@ -12,25 +12,20 @@ TranslateExt is a Chrome extension that translates selected text in PDFs using t
 ## Setup
 
 1. Clone this repository.
-2. Create a `.env` file with your Gemini API key:
-   ```
-   GEMINI_API_KEY=your_api_key_here
-   ```
-3. Install dependencies (if you want to use the icon generation script):
-   ```
-   npm install
-   ```
-4. Load the extension in Chrome:
+2. Load the extension in Chrome:
    - Go to `chrome://extensions/`
    - Enable "Developer mode"
    - Click "Load unpacked" and select this folder.
+3. Click the TranslateExt icon in the toolbar, enter your [Gemini API key](https://aistudio.google.com/app/apikey), select a target language, and click **Save Settings**.
+
+> **Note:** The API key is stored securely in Chrome's `storage.sync` and is never committed to source code.
+> If you use a build or test script, copy `.env.example` to `.env` and fill in your key — this file is git-ignored.
 
 ## Usage
 
-1. Enter your Gemini API key and select your target language in the popup.
-2. Open a PDF in Chrome.
-3. Select text, right-click, and choose "Translate with TranslateExt".
-4. The translation will appear as a notification and in the popup.
+1. Open a PDF (or any web page) in Chrome.
+2. Select text, right-click, and choose "Translate with TranslateExt".
+3. The translation appears in a new pop-up window. The last result is also shown next time you open the popup.
 
 ## Development
 
