@@ -185,58 +185,56 @@ function escapeHtml(text) {
 // Direct translation function for testing and fallback
 function translateDirectly(text) {
   debugLog('Attempting direct translation of:', text.substring(0, 30) + '...');
-  
-  // Use your actual API key here or get it from storage
-  const GEMINI_API_KEY = 'AIzaSyAEyTjstC9Wl2b5vqVTT_dL4Z7jSmbalY8';
-  
-  if (GEMINI_API_KEY === 'YOUR_ACTUAL_API_KEY_HERE') {
-    console.error('ERROR: You must set a real Gemini API key in content.js');
-    showTranslationResult('ERROR: You need to set a real Gemini API key in content.js file before translations will work!', true);
-    return;
-  }
-  
-  const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
-  
-  const prompt = `Translate the following text to English, preserving the formatting and structure: "${text}"`;
-  
-  // Show a loading indicator
-  showTranslationResult('Translating... Please wait...', false, true);
-  
-  fetch(`${apiUrl}?key=${GEMINI_API_KEY}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: prompt
-        }]
-      }]
-    })
-  })
-  .then(response => {
-    debugLog('API Response status:', response.status);
-    return response.json();
-  })
-  .then(data => {
-    debugLog('API Response data:', data);
-    if (data.error) {
-      logTestResult(text, null, data.error);
-      // Open in new window with error
-      openTranslationInNewWindow(text, 'Translation error: ' + data.error.message, true);
-    } else {
-      const translatedText = data.candidates[0].content.parts[0].text;
-      logTestResult(text, translatedText);
-      // Open in new window with result
-      openTranslationInNewWindow(text, translatedText);
+
+  chrome.storage.sync.get(['apiKey', 'targetLanguage'], (result) => {
+    const apiKey = result.apiKey;
+    const targetLanguage = result.targetLanguage || 'English';
+
+    if (!apiKey) {
+      showTranslationResult('ERROR: No API key set. Please open the extension popup, enter your Gemini API key, and click Save Settings.', true);
+      return;
     }
-  })
-  .catch(error => {
-    debugLog('API Error:', error);
-    logTestResult(text, null, error);
-    // Open in new window with error
-    openTranslationInNewWindow(text, 'Translation error: ' + error.message, true);
+
+    const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
+    const prompt = `Translate the following text to ${targetLanguage}, preserving the formatting and structure: "${text}"`;
+
+    // Show a loading indicator
+    showTranslationResult('Translating... Please wait...', false, true);
+
+    fetch(`${apiUrl}?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: prompt
+          }]
+        }]
+      })
+    })
+    .then(response => {
+      debugLog('API Response status:', response.status);
+      return response.json();
+    })
+    .then(data => {
+      debugLog('API Response data:', data);
+      if (data.error) {
+        logTestResult(text, null, data.error);
+        openTranslationInNewWindow(text, 'Translation error: ' + data.error.message, true);
+      } else {
+        const translatedText = data.candidates[0].content.parts[0].text;
+        logTestResult(text, translatedText);
+        openTranslationInNewWindow(text, translatedText);
+      }
+    })
+    .catch(error => {
+      debugLog('API Error:', error);
+      logTestResult(text, null, error);
+      openTranslationInNewWindow(text, 'Translation error: ' + error.message, true);
+    });
   });
 }
 
@@ -249,8 +247,10 @@ function handleExtensionInvalidation() {
 // Add event listener using the named function
 document.addEventListener('mouseup', handleTextSelection);
 
-// Listen for extension invalidation
-chrome.runtime.onSuspend.addListener(handleExtensionInvalidation);
+// Listen for extension invalidation (MV3: onSuspend is only available in service workers)
+if (chrome.runtime.onSuspend) {
+  chrome.runtime.onSuspend.addListener(handleExtensionInvalidation);
+}
 
 // Check if the current page is a PDF
 function isPdfPage() {
@@ -491,15 +491,21 @@ function showTranslationResult(text, isError = false, isLoading = false) {
     (isLoading ? 'translateext-message translateext-message-loading' : 'translateext-message translateext-message-translation');
   
   if (isLoading) {
-    messageBubble.innerHTML = `${text} <div class="loading-spinner"></div>`;
+    messageBubble.textContent = text;
+    const spinner = document.createElement('div');
+    spinner.className = 'loading-spinner';
+    messageBubble.appendChild(spinner);
   } else if (isError) {
     messageBubble.textContent = text;
   } else {
-    // Preserve PDF formatting by maintaining line breaks and spacing
-    messageBubble.innerHTML = text
-      .replace(/\n/g, '<br>')
-      .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
-      .replace(/ {2}/g, '&nbsp;&nbsp;');
+    // Preserve PDF formatting by splitting on newlines and inserting <br> elements
+    const lines = text.split('\n');
+    lines.forEach((line, i) => {
+      messageBubble.appendChild(document.createTextNode(line));
+      if (i < lines.length - 1) {
+        messageBubble.appendChild(document.createElement('br'));
+      }
+    });
   }
   
   // Add timestamp
@@ -559,18 +565,32 @@ function showDiagnosticPanel() {
     box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     max-width: 350px;
   `;
-  
+
+  const onPdf = isPdfPage();
   panel.innerHTML = `
     <h3>PDF Translator Diagnostics</h3>
     <p>Extension status: <span style="color: green; font-weight: bold;">Active</span></p>
-    <p>On PDF page: <span style="color: ${isPdfPage() ? 'green' : 'red'}; font-weight: bold;">${isPdfPage() ? 'Yes' : 'No'}</span></p>
-    <p>API Key set: <span style="color: green; font-weight: bold;">Yes</span></p>
+    <p>On PDF page: <span style="color: ${onPdf ? 'green' : 'red'}; font-weight: bold;">${onPdf ? 'Yes' : 'No'}</span></p>
+    <p>API Key set: <span id="diag-api-key-status" style="font-weight: bold;">Checking...</span></p>
     <button id="test-translation-btn" style="background: #4285F4; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">Run Test Translation</button>
     <button id="close-diagnostic-btn" style="margin-left: 10px; background: #ccc; border: none; padding: 8px; border-radius: 4px; cursor: pointer;">Close</button>
   `;
-  
+
   document.body.appendChild(panel);
-  
+
+  chrome.storage.sync.get(['apiKey'], (result) => {
+    const statusEl = document.getElementById('diag-api-key-status');
+    if (statusEl) {
+      if (result.apiKey) {
+        statusEl.style.color = 'green';
+        statusEl.textContent = 'Yes';
+      } else {
+        statusEl.style.color = 'red';
+        statusEl.textContent = 'No – open the popup to set it';
+      }
+    }
+  });
+
   document.getElementById('test-translation-btn').addEventListener('click', runTestTranslation);
   document.getElementById('close-diagnostic-btn').addEventListener('click', () => panel.remove());
 }
@@ -581,62 +601,63 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
   if (request.action === 'translate') {
     const selectedText = request.text;
-    
+
     // Test mode logging
     debugLog('Translation requested for:', selectedText);
-    
-    // Use Gemini API for translation
-    const GEMINI_API_KEY = 'AIzaSyAEyTjstC9Wl2b5vqVTT_dL4Z7jSmbalY8';
-    
+
     // Respond immediately to prevent connection issues
     sendResponse({status: "Translation request received"});
-    
-    // Check if API key has been set
-    if (GEMINI_API_KEY === 'YOUR_ACTUAL_API_KEY_HERE') {
-      console.error('ERROR: You must set a real Gemini API key in content.js');
-      showTranslationResult('ERROR: You need to set a real Gemini API key in content.js file before translations will work!', true);
-      return;
-    }
-    
-    // Show loading state (optional - we'll keep this for user feedback)
-    showTranslationResult('Translating in new window... Please wait...', false, true);
-    
-    const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
-    
-    const prompt = `Translate the following text to English, preserving the formatting and structure: "${selectedText}"`;
-    
-    fetch(`${apiUrl}?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
-      })
-    })
-    .then(response => {
-      debugLog('API Response status:', response.status);
-      return response.json();
-    })
-    .then(data => {
-      debugLog('API Response data:', data);
-      if (data.error) {
-        logTestResult(selectedText, null, data.error);
-        openTranslationInNewWindow(selectedText, 'Translation error: ' + data.error.message, true);
-      } else {
-        const translatedText = data.candidates[0].content.parts[0].text;
-        logTestResult(selectedText, translatedText);
-        openTranslationInNewWindow(selectedText, translatedText);
+
+    // Read API key and target language from storage (set by the user in the popup)
+    chrome.storage.sync.get(['apiKey', 'targetLanguage'], (result) => {
+      const apiKey = result.apiKey;
+      const targetLanguage = result.targetLanguage || 'English';
+
+      if (!apiKey) {
+        showTranslationResult('ERROR: No API key set. Please open the extension popup, enter your Gemini API key, and click Save Settings.', true);
+        return;
       }
-    })
-    .catch(error => {
-      debugLog('API Error:', error);
-      logTestResult(selectedText, null, error);
-      openTranslationInNewWindow(selectedText, 'Translation error: ' + error.message, true);
+
+      // Show loading state
+      showTranslationResult('Translating in new window... Please wait...', false, true);
+
+      const apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+
+      const prompt = `Translate the following text to ${targetLanguage}, preserving the formatting and structure: "${selectedText}"`;
+
+      fetch(`${apiUrl}?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }]
+        })
+      })
+      .then(response => {
+        debugLog('API Response status:', response.status);
+        return response.json();
+      })
+      .then(data => {
+        debugLog('API Response data:', data);
+        if (data.error) {
+          logTestResult(selectedText, null, data.error);
+          openTranslationInNewWindow(selectedText, 'Translation error: ' + data.error.message, true);
+        } else {
+          const translatedText = data.candidates[0].content.parts[0].text;
+          logTestResult(selectedText, translatedText);
+          openTranslationInNewWindow(selectedText, translatedText);
+        }
+      })
+      .catch(error => {
+        debugLog('API Error:', error);
+        logTestResult(selectedText, null, error);
+        openTranslationInNewWindow(selectedText, 'Translation error: ' + error.message, true);
+      });
     });
   }
 
@@ -659,11 +680,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       document.body.appendChild(popup);
     }
 
-    popup.innerHTML = `
-      <div style="margin-bottom:10px"><strong>Original:</strong><br>${request.original}</div>
-      <div><strong>Translation:</strong><br>${request.translation}</div>
-      <button onclick="this.parentElement.remove()" style="margin-top:10px">Close</button>
-    `;
+    popup.textContent = '';
+    const origDiv = document.createElement('div');
+    origDiv.style.marginBottom = '10px';
+    origDiv.innerHTML = '<strong>Original:</strong><br>';
+    origDiv.appendChild(document.createTextNode(request.original));
+    const transDiv = document.createElement('div');
+    transDiv.innerHTML = '<strong>Translation:</strong><br>';
+    transDiv.appendChild(document.createTextNode(request.translation));
+    const closeBtn = document.createElement('button');
+    closeBtn.style.marginTop = '10px';
+    closeBtn.textContent = 'Close';
+    closeBtn.addEventListener('click', () => popup.remove());
+    popup.appendChild(origDiv);
+    popup.appendChild(transDiv);
+    popup.appendChild(closeBtn);
   }
 
   if (request.action === 'showError') {
