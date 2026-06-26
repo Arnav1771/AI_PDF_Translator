@@ -1,13 +1,13 @@
-{
+﻿{
   "manifest_version": 3,
-  "name": "TranslateExt - PDF Translator",
-  "version": "1.0",
-  "description": "Translate selected text in PDFs using Gemini API.",
+  "name": "TranslateExt - AI PDF Translator",
+  "version": "2.0",
+  "description": "Instantly translate selected text in PDFs and any webpage using Google Gemini AI. Beautiful results panel, 25+ languages, translation history.",
   "permissions": [
-    "storage",        
-    "contextMenus",   
-    "notifications",  
-    "scripting",      
+    "storage",
+    "contextMenus",
+    "notifications",
+    "scripting",
     "activeTab",
     "tabs"
   ],
@@ -18,13 +18,31 @@
     "service_worker": "background.js"
   },
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_title": "TranslateExt - AI Translator",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],
+      "css": ["chat-ui.css"],
       "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["chat-ui.css", "images/icon48.png", "images/icon128.png"],
+      "matches": ["<all_urls>"]
     }
   ]
 }
