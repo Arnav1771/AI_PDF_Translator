@@ -1,58 +1,88 @@
+﻿// TranslateExt Popup Script
+
 document.addEventListener('DOMContentLoaded', () => {
   const apiKeyInput = document.getElementById('apiKey');
-  const targetLanguageSelect = document.getElementById('targetLanguage');
-  const saveButton = document.getElementById('save');
-  const statusDiv = document.getElementById('status');
-  const translatedTextDiv = document.getElementById('translated-text'); // Get the div for translated text
+  const langSelect  = document.getElementById('targetLanguage');
+  const saveBtn     = document.getElementById('save');
+  const statusDiv   = document.getElementById('status');
+  const toggleKey   = document.getElementById('toggleKey');
+  const clearBtn    = document.getElementById('clearHistory');
+  const historyList = document.getElementById('history-list');
+  const howCard     = document.getElementById('how-card');
+  const howToggle   = document.getElementById('howToggle');
 
-  // Load saved settings when popup opens
-  chrome.storage.sync.get(['apiKey', 'targetLanguage'], (result) => {
-    if (result.apiKey) {
-      apiKeyInput.value = result.apiKey;
-    }
-    if (result.targetLanguage) {
-      targetLanguageSelect.value = result.targetLanguage;
-    }
-    statusDiv.textContent = 'Settings loaded.';
+  // ── Load saved settings ───────────────────────────────
+  chrome.storage.sync.get(['apiKey', 'targetLanguage'], ({ apiKey, targetLanguage }) => {
+    if (apiKey) apiKeyInput.value = apiKey;
+    if (targetLanguage) langSelect.value = targetLanguage;
   });
 
-   // Load and display last translation result if available
-   chrome.storage.local.get(['lastTranslation'], (result) => {
-    if (result.lastTranslation) {
-      translatedTextDiv.textContent = `Last Translation:\n${result.lastTranslation}`;
-    } else {
-      translatedTextDiv.textContent = 'No translation performed yet.';
-    }
+  // ── Load history ──────────────────────────────────────
+  loadHistory();
+
+  // ── Show / hide API key ───────────────────────────────
+  toggleKey.addEventListener('click', () => {
+    const isHidden = apiKeyInput.type === 'password';
+    apiKeyInput.type = isHidden ? 'text' : 'password';
+    toggleKey.innerHTML = isHidden ? '&#128065;&#xFE0E;' : '&#128065;';
   });
 
-
-  // Save settings when button is clicked
-  saveButton.addEventListener('click', () => {
-    const apiKey = apiKeyInput.value.trim();
-    const targetLanguage = targetLanguageSelect.value;
-
-    if (!apiKey) {
-        statusDiv.textContent = 'Error: API Key cannot be empty.';
-        statusDiv.style.color = 'red';
-        return;
+  // ── Save settings ─────────────────────────────────────
+  saveBtn.addEventListener('click', () => {
+    const key = apiKeyInput.value.trim();
+    if (!key) {
+      setStatus('API key cannot be empty.', 'error');
+      return;
     }
-
-    chrome.storage.sync.set({ apiKey, targetLanguage }, () => {
-      statusDiv.textContent = 'Settings saved successfully!';
-      statusDiv.style.color = 'green';
-      setTimeout(() => {
-         statusDiv.textContent = 'Ready to translate PDFs';
-         statusDiv.style.color = 'black'; // Reset color
-      }, 2000); // Clear message after 2 seconds
+    chrome.storage.sync.set({ apiKey: key, targetLanguage: langSelect.value }, () => {
+      setStatus('Settings saved!', 'success');
+      setTimeout(() => setStatus('', ''), 2500);
     });
   });
 
-  // Optional: Add listener for test page button if it exists
-  const openTestButton = document.getElementById('openTest');
-  if (openTestButton) {
-      openTestButton.addEventListener('click', () => {
-        // Assuming test.html exists in your extension directory
-        chrome.tabs.create({ url: chrome.runtime.getURL('test.html') });
+  // ── Clear history ─────────────────────────────────────
+  clearBtn.addEventListener('click', () => {
+    chrome.storage.local.set({ history: [] }, loadHistory);
+  });
+
+  // ── Collapsible how-to ────────────────────────────────
+  howToggle.addEventListener('click', () => {
+    howCard.classList.toggle('open');
+  });
+
+  // ── Helpers ───────────────────────────────────────────
+  function setStatus(msg, type) {
+    statusDiv.textContent = msg;
+    statusDiv.className = 'status-msg' + (type ? ' ' + type : '');
+  }
+
+  function loadHistory() {
+    chrome.storage.local.get(['history'], ({ history }) => {
+      historyList.innerHTML = '';
+      if (!history || history.length === 0) {
+        historyList.innerHTML = '<p class="empty-state">No translations yet. Select text on any page, right-click, and choose <em>Translate with TranslateExt</em>.</p>';
+        return;
+      }
+      history.slice(0, 5).forEach(entry => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerHTML = `
+          <div class="history-lang">${escapeHtml(entry.language || '')}</div>
+          <div class="history-original">${escapeHtml(truncate(entry.original || '', 80))}</div>
+          <div class="history-translation">${escapeHtml(truncate(entry.translation || '', 120))}</div>
+        `;
+        historyList.appendChild(item);
       });
+    });
+  }
+
+  function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+  }
+
+  function truncate(str, max) {
+    return str.length > max ? str.substring(0, max) + '…' : str;
   }
 });

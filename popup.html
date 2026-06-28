@@ -1,46 +1,28 @@
-<!DOCTYPE html>
-<html>
+﻿<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>TranslateExt - PDF Translator</title>
-  <style>
-    body { width: 350px; padding: 15px; font-family: sans-serif; font-size: 14px; }
-    h1, h2, h3 { margin-top: 0; margin-bottom: 10px; }
-    .container { display: flex; flex-direction: column; gap: 15px; }
-    .form-group, .input-group, .button-group { margin-bottom: 10px; }
-    label { display: block; margin-bottom: 3px; font-weight: bold;}
-    input[type="password"], select {
-        width: calc(100% - 12px); /* Account for padding */
-        padding: 5px;
-        margin-bottom: 5px;
-        box-sizing: border-box; /* Include padding in width */
-    }
-    button { width: 100%; padding: 8px 10px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 3px; }
-    button:hover { background-color: #0056b3; }
-    #status { margin-top: 5px; font-style: italic; }
-    #translated-text {
-        margin-top: 10px;
-        padding: 10px;
-        border: 1px solid #ccc;
-        background-color: #f9f9f9;
-        min-height: 50px;
-        white-space: pre-wrap; /* Preserve whitespace and newlines */
-        word-wrap: break-word; /* Break long words */
-        font-size: 13px;
-    }
-    .instructions ol { padding-left: 20px; margin-top: 5px; }
-    .instructions li { margin-bottom: 5px; }
-    hr { border: 0; height: 1px; background-color: #eee; margin: 15px 0; }
-  </style>
+  <title>TranslateExt</title>
+  <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div class="container">
-    <h1>TranslateExt</h1>
+  <div class="popup-root">
 
-    <div class="settings-section">
-      <h2>Settings</h2>
+    <!-- Header -->
+    <header class="popup-header">
+      <img src="images/icon48.png" alt="" class="popup-logo">
+      <div class="popup-header-text">
+        <span class="popup-brand">TranslateExt</span>
+        <span class="popup-tagline">AI PDF Translator</span>
+      </div>
+    </header>
+
+    <!-- Settings card -->
+    <section class="card" id="settings-card">
+      <h2 class="card-title">Settings</h2>
+
       <div class="form-group">
-        <label for="targetLanguage">Translate To:</label>
+        <label for="targetLanguage">Translate to</label>
         <select id="targetLanguage">
           <option value="en">English</option>
           <option value="es">Spanish</option>
@@ -49,7 +31,7 @@
           <option value="it">Italian</option>
           <option value="ja">Japanese</option>
           <option value="ko">Korean</option>
-          <option value="zh">Chinese</option>
+          <option value="zh">Chinese (Simplified)</option>
           <option value="ru">Russian</option>
           <option value="ar">Arabic</option>
           <option value="hi">Hindi</option>
@@ -69,40 +51,45 @@
           <option value="fa">Persian</option>
         </select>
       </div>
-      <div class="input-group">
-        <label for="apiKey">Gemini API Key:</label>
-        <input type="password" id="apiKey" placeholder="Enter your Gemini API key">
-      </div>
-      <div class="button-group">
-        <button id="save">Save Settings</button>
-      </div>
-       <div id="status">Enter settings and save.</div>
-    </div>
 
-    <hr>
-
-     <div class="translation-display">
-        <h2>Last Translation</h2>
-        <div id="translated-text">
-          Select text in a PDF, right-click, and choose "Translate with TranslateExt".
+      <div class="form-group">
+        <label for="apiKey">Gemini API Key</label>
+        <div class="input-row">
+          <input type="password" id="apiKey" placeholder="Paste your API key here" autocomplete="off">
+          <button class="icon-btn" id="toggleKey" title="Show/hide key" aria-label="Show/hide API key">&#128065;</button>
         </div>
-     </div>
+        <a class="key-link" href="https://aistudio.google.com/app/apikey" target="_blank">Get a free Gemini key &rarr;</a>
+      </div>
 
-    <hr>
+      <button class="btn-primary" id="save">Save Settings</button>
+      <div id="status" class="status-msg"></div>
+    </section>
 
-    <div class="instructions">
-      <h3>How to Use:</h3>
-      <ol>
-        <li>Get a Gemini API Key from Google AI Studio or Google Cloud Platform (ensure it's enabled for the Gemini API).</li>
-        <li>Enter the API Key above and select your desired target language.</li>
-        <li>Click "Save Settings".</li>
-        <li>Open a PDF file in your Chrome browser.</li>
-        <li>Select the text you want to translate within the PDF.</li>
-        <li>Right-click on the selected text.</li>
-        <li>Choose "Translate with TranslateExt" from the context menu.</li>
-        <li>The translation will appear as a browser notification (and in the "Last Translation" box above next time you open this popup).</li>
+    <!-- History card -->
+    <section class="card" id="history-card">
+      <div class="card-title-row">
+        <h2 class="card-title">Recent Translations</h2>
+        <button class="link-btn" id="clearHistory">Clear</button>
+      </div>
+      <div id="history-list">
+        <p class="empty-state">No translations yet. Select text on any page, right-click, and choose <em>Translate with TranslateExt</em>.</p>
+      </div>
+    </section>
+
+    <!-- How to use -->
+    <section class="card collapsible" id="how-card">
+      <button class="collapsible-toggle" id="howToggle">
+        <span>How to use</span>
+        <span class="chevron">&#8250;</span>
+      </button>
+      <ol class="how-list" id="howList">
+        <li>Get a free Gemini API key from <strong>Google AI Studio</strong>.</li>
+        <li>Paste it above and click <strong>Save Settings</strong>.</li>
+        <li>Open any PDF (or web page) in Chrome.</li>
+        <li>Select text, right-click &rarr; <strong>Translate with TranslateExt</strong>.</li>
+        <li>The translation panel appears on the page.</li>
       </ol>
-    </div>
+    </section>
 
   </div>
   <script src="popup.js"></script>
